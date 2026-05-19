@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=do-o-english
+GenericName=English Learning Game
+Comment=Learn English with a 3D hub world and lesson scenes
+Exec=bash -c "if [ -x $HOME/Desktop/projects/do-o-english/dist/do-o-english/do-o-english ]; then exec $HOME/Desktop/projects/do-o-english/dist/do-o-english/do-o-english; else exec $HOME/Desktop/projects/do-o-english/launchers/run.sh; fi"
+Path=
+Icon=applications-education
+Terminal=false
+Categories=Education;Languages;Game;
+Keywords=english;learning;language;duolingo;3d;
+StartupNotify=true

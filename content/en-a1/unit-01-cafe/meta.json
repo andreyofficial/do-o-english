@@ -1,0 +1,6 @@
+{
+  "id": "unit-01-cafe",
+  "title": "Café Basics",
+  "description": "Order drinks and snacks in English at a cozy café.",
+  "lessonIds": ["cafe-01", "cafe-02", "cafe-03", "cafe-04", "cafe-05"]
+}

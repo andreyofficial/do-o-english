@@ -1,0 +1,51 @@
+{
+  "id": "cafe-02",
+  "title": "Order a Drink",
+  "scene": "cafe",
+  "unlockAfter": "cafe-01",
+  "npcIntro": "I'm thirsty — help me order a drink!",
+  "npcOutro": "Perfect order. The barista smiles!",
+  "xpReward": 12,
+  "exercises": [
+    {
+      "type": "multiple_choice",
+      "prompt": "How do you ask for water?",
+      "choices": ["Water, please.", "Water is please.", "Please watering."],
+      "answer": 0,
+      "phraseCard": "Water, please."
+    },
+    {
+      "type": "fill_blank",
+      "prompt": "I'd like a cup of ___ .",
+      "choices": ["tea", "tree", "tee"],
+      "answer": "tea",
+      "phraseCard": "A cup of tea"
+    },
+    {
+      "type": "word_order",
+      "prompt": "Build: I'd like coffee",
+      "words": ["I'd", "like", "coffee."],
+      "phraseCard": "I'd like coffee."
+    },
+    {
+      "type": "tap_pairs",
+      "prompt": "Match drink to phrase",
+      "pairs": [["Coffee", "Hot brown drink"], ["Juice", "Fruit drink"]],
+      "answer": []
+    },
+    {
+      "type": "listen_select",
+      "prompt": "You hear: \"A latte, please.\"",
+      "choices": ["A latte, please.", "A late, please.", "A letter, please."],
+      "answer": 0,
+      "phraseCard": "A latte, please."
+    },
+    {
+      "type": "multiple_choice",
+      "prompt": "Which is a question?",
+      "choices": ["Do you have milk?", "I have milk.", "Milk have you."],
+      "answer": 0,
+      "phraseCard": "Do you have milk?"
+    }
+  ]
+}

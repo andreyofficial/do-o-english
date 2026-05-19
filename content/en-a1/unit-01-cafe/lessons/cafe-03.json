@@ -1,0 +1,43 @@
+{
+  "id": "cafe-03",
+  "title": "Sizes & To-go",
+  "scene": "cafe",
+  "unlockAfter": "cafe-02",
+  "npcIntro": "Daily challenge: pick the right size and bag!",
+  "npcOutro": "You nailed sizes — barista approved!",
+  "xpReward": 15,
+  "exercises": [
+    {
+      "type": "multiple_choice",
+      "prompt": "Which means \"large\"?",
+      "choices": ["Large", "Luggage", "Lodge"],
+      "answer": 0,
+      "phraseCard": "Large"
+    },
+    {
+      "type": "fill_blank",
+      "prompt": "Small, medium, or ___ ?",
+      "choices": ["large", "lunge", "larch"],
+      "answer": "large"
+    },
+    {
+      "type": "word_order",
+      "prompt": "Arrange: to-go order",
+      "words": ["To", "go,", "please."],
+      "phraseCard": "To go, please."
+    },
+    {
+      "type": "tap_pairs",
+      "prompt": "Match size words",
+      "pairs": [["Small", "Little"], ["Medium", "Middle size"]],
+      "answer": []
+    },
+    {
+      "type": "listen_select",
+      "prompt": "You hear: \"For here or to go?\"",
+      "choices": ["For here or to go?", "Four here or to go?", "For hair or to go?"],
+      "answer": 0,
+      "phraseCard": "For here or to go?"
+    }
+  ]
+}

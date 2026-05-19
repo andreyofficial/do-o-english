@@ -1,0 +1,53 @@
+{
+  "id": "cafe-05",
+  "title": "Café Combo",
+  "scene": "cafe",
+  "unlockAfter": "cafe-04",
+  "npcIntro": "Final round — combine everything you learned!",
+  "npcOutro": "You're a café pro! See you on the hub map.",
+  "xpReward": 20,
+  "exercises": [
+    {
+      "type": "multiple_choice",
+      "prompt": "Full polite order:",
+      "choices": [
+        "Hello! A medium tea to go, please.",
+        "Tea medium hello go.",
+        "Go tea medium hello!"
+      ],
+      "answer": 0,
+      "phraseCard": "Full polite order"
+    },
+    {
+      "type": "fill_blank",
+      "prompt": "After paying you say: \"___ !\"",
+      "choices": ["Thanks", "Tanks", "Think"],
+      "answer": "Thanks"
+    },
+    {
+      "type": "word_order",
+      "prompt": "Arrange farewell",
+      "words": ["Have", "a", "nice", "day!"],
+      "phraseCard": "Have a nice day!"
+    },
+    {
+      "type": "tap_pairs",
+      "prompt": "Match café phrases",
+      "pairs": [["To go", "Take away"], ["For here", "Eat in"]],
+      "answer": []
+    },
+    {
+      "type": "listen_select",
+      "prompt": "You hear: \"See you next time!\"",
+      "choices": ["See you next time!", "Sea you next time!", "See you nest time!"],
+      "answer": 0,
+      "phraseCard": "See you next time!"
+    },
+    {
+      "type": "multiple_choice",
+      "prompt": "Best response to \"Enjoy your drink!\"",
+      "choices": ["Thank you!", "Water please.", "Large size."],
+      "answer": 0
+    }
+  ]
+}
