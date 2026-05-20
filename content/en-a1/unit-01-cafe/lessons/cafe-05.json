@@ -1,53 +1,72 @@
 {
   "id": "cafe-05",
-  "title": "Café Combo",
+  "title": "Café Boss Battle",
   "scene": "cafe",
   "unlockAfter": "cafe-04",
-  "npcIntro": "Final round — combine everything you learned!",
-  "npcOutro": "You're a café pro! See you on the hub map.",
-  "xpReward": 20,
+  "npcIntro": "Mixed grammar, idioms and listening — all in one lesson.",
+  "npcOutro": "You've earned barista-level English. Mug salute!",
+  "xpReward": 30,
   "exercises": [
     {
       "type": "multiple_choice",
-      "prompt": "Full polite order:",
+      "prompt": "Which sentence is GRAMMATICALLY WRONG?",
       "choices": [
-        "Hello! A medium tea to go, please.",
-        "Tea medium hello go.",
-        "Go tea medium hello!"
+        "I would have liked an slice of cake.",
+        "I would have liked a slice of cake.",
+        "I'd have preferred a slice of cake.",
+        "I would rather have had a slice of cake."
       ],
       "answer": 0,
-      "phraseCard": "Full polite order"
+      "phraseCard": "a slice (NOT 'an slice' — 'slice' starts with a consonant sound)"
     },
     {
       "type": "fill_blank",
-      "prompt": "After paying you say: \"___ !\"",
-      "choices": ["Thanks", "Tanks", "Think"],
-      "answer": "Thanks"
-    },
-    {
-      "type": "word_order",
-      "prompt": "Arrange farewell",
-      "words": ["Have", "a", "nice", "day!"],
-      "phraseCard": "Have a nice day!"
-    },
-    {
-      "type": "tap_pairs",
-      "prompt": "Match café phrases",
-      "pairs": [["To go", "Take away"], ["For here", "Eat in"]],
-      "answer": []
-    },
-    {
-      "type": "listen_select",
-      "prompt": "You hear: \"See you next time!\"",
-      "choices": ["See you next time!", "Sea you next time!", "See you nest time!"],
-      "answer": 0,
-      "phraseCard": "See you next time!"
+      "prompt": "Neither the cake ____ the coffee was very good today.",
+      "choices": ["nor", "or", "and", "but"],
+      "answer": "nor",
+      "phraseCard": "neither X nor Y"
     },
     {
       "type": "multiple_choice",
-      "prompt": "Best response to \"Enjoy your drink!\"",
-      "choices": ["Thank you!", "Water please.", "Large size."],
-      "answer": 0
+      "prompt": "Which is the correct INDIRECT question?",
+      "choices": [
+        "Could you tell me where the bathroom is?",
+        "Could you tell me where is the bathroom?",
+        "Could you tell me where the bathroom be?",
+        "You could tell me where is the bathroom?"
+      ],
+      "answer": 0,
+      "phraseCard": "indirect: subject + verb (NOT inverted)"
+    },
+    {
+      "type": "multiple_choice",
+      "prompt": "What does \"It's on the house\" mean?",
+      "choices": [
+        "It's free — the café is paying for it.",
+        "It's served on the roof terrace.",
+        "It's the daily special.",
+        "It's at the cashier's counter."
+      ],
+      "answer": 0,
+      "phraseCard": "on the house = free, the business pays"
+    },
+    {
+      "type": "word_order",
+      "prompt": "Build a long sentence about a career:",
+      "words": ["She", "had", "been", "working", "at", "that", "café", "for", "over", "five", "years", "before", "she", "quit."],
+      "phraseCard": "had been + verb-ing — past perfect continuous"
+    },
+    {
+      "type": "listen_select",
+      "prompt": "You hear: \"I'll take the affogato.\" — pick what you heard.",
+      "choices": [
+        "I'll take the affogato.",
+        "I'll take the avocado.",
+        "I'll bake the affogato.",
+        "I'll take the appetizer."
+      ],
+      "answer": 0,
+      "phraseCard": "affogato = espresso poured over ice cream"
     }
   ]
 }

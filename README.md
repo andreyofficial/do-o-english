@@ -18,12 +18,12 @@ Progress is saved to `~/.local/share/do-o-english/progress.db` (a tiny SQLite fi
 ## Quick start (recommended)
 
 The launchers create a virtual environment and install `pygame` on first run.
+There are just two of them:
 
 | OS | Command |
 |----|---------|
-| **Linux** | `./launchers/run.sh` |
-| **macOS** | double-click `launchers/run.command` |
-| **Windows** | double-click `launchers\run.bat` |
+| **Linux** | `./launchers/linux.sh` |
+| **Windows** | double-click `launchers\windows.bat` |
 
 ## Or run it manually
 
@@ -43,7 +43,7 @@ do-o-english/
 ├── main.py            ← the whole game (well commented, no surprises)
 ├── requirements.txt   ← just: pygame
 ├── content/           ← lesson JSON files (5 café lessons)
-└── launchers/         ← auto-installing launch & build scripts
+└── launchers/         ← linux.sh and windows.bat (auto-install + launch)
 ```
 
 `main.py` is split into clearly labelled sections:

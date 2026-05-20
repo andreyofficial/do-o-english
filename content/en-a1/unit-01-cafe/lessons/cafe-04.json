@@ -1,43 +1,72 @@
 {
   "id": "cafe-04",
-  "title": "Pay & Tip",
+  "title": "Paying & Complaints",
   "scene": "cafe",
   "unlockAfter": "cafe-03",
-  "npcIntro": "Time to pay the bill — choose the right phrases.",
-  "npcOutro": "Check please! You're ready to pay.",
-  "xpReward": 12,
+  "npcIntro": "What happens when things go sideways — and you still want to be polite.",
+  "npcOutro": "Complaint handled, dignity intact. Well done.",
+  "xpReward": 24,
   "exercises": [
     {
       "type": "multiple_choice",
-      "prompt": "How do you ask for the bill?",
-      "choices": ["The check, please.", "The chicken, please.", "The chalk, please."],
+      "prompt": "There's a hair in your latte. Which complaint is most polite?",
+      "choices": [
+        "Excuse me, I'm afraid there's a hair in my drink.",
+        "Hey, hair in coffee!",
+        "Your coffee is disgusting.",
+        "Change this — hair inside."
+      ],
       "answer": 0,
-      "phraseCard": "The check, please."
+      "phraseCard": "I'm afraid there's a hair in my drink."
     },
     {
       "type": "fill_blank",
-      "prompt": "Can I pay by ___ ?",
-      "choices": ["card", "cord", "cart"],
-      "answer": "card",
-      "phraseCard": "Pay by card"
+      "prompt": "The bill comes ____ $24.50 with tax.",
+      "choices": ["to", "at", "by", "for"],
+      "answer": "to",
+      "phraseCard": "the bill comes to (= totals)"
+    },
+    {
+      "type": "multiple_choice",
+      "prompt": "Which sentence uses 'tip' correctly as a verb?",
+      "choices": [
+        "I tipped the waiter twenty percent.",
+        "I tipped to the waiter twenty percent.",
+        "I made the waiter a tip of twenty percent.",
+        "I gave a tip the waiter twenty percent."
+      ],
+      "answer": 0,
+      "phraseCard": "to tip someone (+ amount)"
+    },
+    {
+      "type": "multiple_choice",
+      "prompt": "Pick the correct conditional: \"If I ____ known the wait was that long, I ____ somewhere else.\"",
+      "choices": [
+        "had / would have gone",
+        "have / would go",
+        "would have / went",
+        "knew / had gone"
+      ],
+      "answer": 0,
+      "phraseCard": "third conditional: had + p.p. / would have + p.p."
     },
     {
       "type": "word_order",
-      "prompt": "Arrange: keep the change",
-      "words": ["Keep", "the", "change."],
-      "phraseCard": "Keep the change."
-    },
-    {
-      "type": "tap_pairs",
-      "prompt": "Match payment words",
-      "pairs": [["Cash", "Paper money"], ["Receipt", "Proof of payment"]],
-      "answer": []
+      "prompt": "Build a payment question:",
+      "words": ["Could", "we", "split", "the", "bill", "three", "ways,", "please?"],
+      "phraseCard": "Could we split the bill three ways, please?"
     },
     {
       "type": "listen_select",
-      "prompt": "You hear: \"That's ten dollars.\"",
-      "choices": ["That's ten dollars.", "That's ten collars.", "That's ten dolmens."],
-      "answer": 0
+      "prompt": "You hear: \"Just keep the change.\" — what is the customer doing?",
+      "choices": [
+        "Letting the server keep the leftover money as a tip.",
+        "Asking the server to bring back the exact change.",
+        "Refusing to pay any change.",
+        "Complaining about a price change."
+      ],
+      "answer": 0,
+      "phraseCard": "Keep the change (= treat the leftover as a tip)"
     }
   ]
 }

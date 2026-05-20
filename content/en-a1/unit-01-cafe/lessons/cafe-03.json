@@ -1,43 +1,73 @@
 {
   "id": "cafe-03",
-  "title": "Sizes & To-go",
+  "title": "Vocabulary Traps",
   "scene": "cafe",
   "unlockAfter": "cafe-02",
-  "npcIntro": "Daily challenge: pick the right size and bag!",
-  "npcOutro": "You nailed sizes — barista approved!",
-  "xpReward": 15,
+  "npcIntro": "Tricky words today — small mistakes change everything.",
+  "npcOutro": "Vocab on point. The barista nods respectfully.",
+  "xpReward": 24,
   "exercises": [
     {
       "type": "multiple_choice",
-      "prompt": "Which means \"large\"?",
-      "choices": ["Large", "Luggage", "Lodge"],
+      "prompt": "Choose the correct collocation:",
+      "choices": [
+        "make a coffee",
+        "do a coffee",
+        "create a coffee",
+        "build a coffee"
+      ],
       "answer": 0,
-      "phraseCard": "Large"
+      "phraseCard": "make (NOT do) a coffee / a tea"
+    },
+    {
+      "type": "multiple_choice",
+      "prompt": "Pick the right phrasal verb: \"I just ____ to grab a latte before work.\"",
+      "choices": [
+        "dropped by",
+        "dropped down",
+        "dropped off",
+        "dropped through"
+      ],
+      "answer": 0,
+      "phraseCard": "drop by = visit briefly"
     },
     {
       "type": "fill_blank",
-      "prompt": "Small, medium, or ___ ?",
-      "choices": ["large", "lunge", "larch"],
-      "answer": "large"
+      "prompt": "She's allergic ____ dairy, so she takes oat milk.",
+      "choices": ["to", "of", "from", "with"],
+      "answer": "to",
+      "phraseCard": "allergic to (NOT 'of'/'from')"
     },
     {
-      "type": "word_order",
-      "prompt": "Arrange: to-go order",
-      "words": ["To", "go,", "please."],
-      "phraseCard": "To go, please."
+      "type": "multiple_choice",
+      "prompt": "What does \"I'll get this round\" most likely mean at a café?",
+      "choices": [
+        "I'll pay for everyone's drinks this time.",
+        "I'll order a round pastry.",
+        "I'll walk around the table.",
+        "I'll buy something that's circular."
+      ],
+      "answer": 0,
+      "phraseCard": "get / buy this round = pay for everyone's drinks"
     },
     {
-      "type": "tap_pairs",
-      "prompt": "Match size words",
-      "pairs": [["Small", "Little"], ["Medium", "Middle size"]],
-      "answer": []
+      "type": "fill_blank",
+      "prompt": "The coffee was so ____ I couldn't finish it.",
+      "choices": ["bitter", "bittersweet", "bitten", "biting"],
+      "answer": "bitter",
+      "phraseCard": "bitter coffee (NOT 'bitten' / 'biting')"
     },
     {
       "type": "listen_select",
-      "prompt": "You hear: \"For here or to go?\"",
-      "choices": ["For here or to go?", "Four here or to go?", "For hair or to go?"],
+      "prompt": "You hear: \"I'd kill for a coffee right now.\" — meaning?",
+      "choices": [
+        "I really, really want a coffee.",
+        "I'm angry about coffee.",
+        "I would fight someone for coffee.",
+        "Coffee is dangerous for me."
+      ],
       "answer": 0,
-      "phraseCard": "For here or to go?"
+      "phraseCard": "I'd kill for X = I really want X"
     }
   ]
 }

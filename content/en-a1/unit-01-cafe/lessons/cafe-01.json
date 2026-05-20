@@ -1,43 +1,66 @@
 {
   "id": "cafe-01",
-  "title": "Hello & Please",
+  "title": "Polite Requests",
   "scene": "cafe",
-  "npcIntro": "Welcome to the café! Let's learn polite words first.",
-  "npcOutro": "Lovely! Politeness opens every door.",
-  "xpReward": 10,
+  "npcIntro": "Politeness is a superpower at the counter. Let's level it up.",
+  "npcOutro": "Beautiful — you sound like a regular now.",
+  "xpReward": 18,
   "exercises": [
     {
       "type": "multiple_choice",
-      "prompt": "How do you greet the barista?",
-      "choices": ["Hello!", "Goodbye!", "Sleep well!"],
+      "prompt": "Which is the most polite way to ask for water?",
+      "choices": [
+        "Could I have some water, please?",
+        "Give me a water.",
+        "Water!",
+        "I want water now."
+      ],
       "answer": 0,
-      "phraseCard": "Hello!"
+      "phraseCard": "Could I have some water, please?"
     },
     {
       "type": "fill_blank",
-      "prompt": "Complete: \"___ , please.\" (asking politely)",
-      "choices": ["Please", "Thanks", "Sorry"],
-      "answer": "Please",
-      "phraseCard": "Please"
+      "prompt": "I'd ____ have tea than coffee, if you don't mind.",
+      "choices": ["rather", "better", "sooner", "much"],
+      "answer": "rather",
+      "phraseCard": "I'd rather X than Y"
+    },
+    {
+      "type": "multiple_choice",
+      "prompt": "Which sentence is grammatically correct?",
+      "choices": [
+        "I don't want any milk in my coffee.",
+        "I don't want no milk in my coffee.",
+        "I want no any milk in my coffee.",
+        "I don't want some milk in my coffee."
+      ],
+      "answer": 0,
+      "phraseCard": "don't want any (NOT 'no' / 'some')"
+    },
+    {
+      "type": "fill_blank",
+      "prompt": "I'll wait for you ____ the café entrance at six.",
+      "choices": ["at", "in", "on", "to"],
+      "answer": "at",
+      "phraseCard": "at the entrance / on the corner / in the café"
     },
     {
       "type": "word_order",
-      "prompt": "Arrange: a polite request for coffee",
-      "words": ["Coffee,", "please."],
-      "phraseCard": "Coffee, please."
-    },
-    {
-      "type": "tap_pairs",
-      "prompt": "Match English to meaning",
-      "pairs": [["Hello", "Hi / greeting"], ["Please", "Polite word"]],
-      "answer": []
+      "prompt": "Build a very polite request:",
+      "words": ["Could", "I", "possibly", "have", "a", "refill,", "please?"],
+      "phraseCard": "Could I possibly have a refill, please?"
     },
     {
       "type": "listen_select",
-      "prompt": "You hear: \"Thank you.\" — What did you hear?",
-      "choices": ["Thank you.", "Think you.", "Tank you."],
+      "prompt": "You hear: \"I'll have the same, thanks.\" — what does the speaker mean?",
+      "choices": [
+        "The same thing the previous customer ordered.",
+        "A drink that costs the same as last time.",
+        "The same size as their friend's.",
+        "Whatever the cheapest item is."
+      ],
       "answer": 0,
-      "phraseCard": "Thank you."
+      "phraseCard": "I'll have the same"
     }
   ]
 }

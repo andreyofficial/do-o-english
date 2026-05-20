@@ -1,51 +1,67 @@
 {
   "id": "cafe-02",
-  "title": "Order a Drink",
+  "title": "Ordering & Tenses",
   "scene": "cafe",
   "unlockAfter": "cafe-01",
-  "npcIntro": "I'm thirsty — help me order a drink!",
-  "npcOutro": "Perfect order. The barista smiles!",
-  "xpReward": 12,
+  "npcIntro": "Same café, harder grammar. Pick the right tense each time.",
+  "npcOutro": "Tenses bent to your will. Espresso earned.",
+  "xpReward": 22,
   "exercises": [
     {
       "type": "multiple_choice",
-      "prompt": "How do you ask for water?",
-      "choices": ["Water, please.", "Water is please.", "Please watering."],
+      "prompt": "You arrived ten minutes ago and are still in line. Choose:",
+      "choices": [
+        "I've been waiting for ten minutes.",
+        "I'm waiting since ten minutes.",
+        "I wait since ten minutes.",
+        "I waited for ten minutes."
+      ],
       "answer": 0,
-      "phraseCard": "Water, please."
+      "phraseCard": "I've been waiting for ten minutes."
     },
     {
       "type": "fill_blank",
-      "prompt": "I'd like a cup of ___ .",
-      "choices": ["tea", "tree", "tee"],
-      "answer": "tea",
-      "phraseCard": "A cup of tea"
-    },
-    {
-      "type": "word_order",
-      "prompt": "Build: I'd like coffee",
-      "words": ["I'd", "like", "coffee."],
-      "phraseCard": "I'd like coffee."
-    },
-    {
-      "type": "tap_pairs",
-      "prompt": "Match drink to phrase",
-      "pairs": [["Coffee", "Hot brown drink"], ["Juice", "Fruit drink"]],
-      "answer": []
-    },
-    {
-      "type": "listen_select",
-      "prompt": "You hear: \"A latte, please.\"",
-      "choices": ["A latte, please.", "A late, please.", "A letter, please."],
-      "answer": 0,
-      "phraseCard": "A latte, please."
+      "prompt": "This espresso is much ____ than yesterday's.",
+      "choices": ["stronger", "more stronger", "strong", "most strong"],
+      "answer": "stronger",
+      "phraseCard": "comparatives: stronger, hotter, sweeter (no 'more')"
     },
     {
       "type": "multiple_choice",
-      "prompt": "Which is a question?",
-      "choices": ["Do you have milk?", "I have milk.", "Milk have you."],
+      "prompt": "Most natural reply to \"For here or to go?\":",
+      "choices": [
+        "To go, please.",
+        "Yes, please.",
+        "I'm fine, thanks.",
+        "No, I won't."
+      ],
       "answer": 0,
-      "phraseCard": "Do you have milk?"
+      "phraseCard": "For here / To go"
+    },
+    {
+      "type": "fill_blank",
+      "prompt": "There ____ any oat milk left, sorry.",
+      "choices": ["isn't", "aren't", "doesn't", "wasn't"],
+      "answer": "isn't",
+      "phraseCard": "milk is uncountable → there isn't any"
+    },
+    {
+      "type": "word_order",
+      "prompt": "Build the question:",
+      "words": ["How", "long", "have", "you", "been", "working", "here?"],
+      "phraseCard": "How long have you been working here?"
+    },
+    {
+      "type": "listen_select",
+      "prompt": "You hear: \"I'll have a flat white.\" — choose what you heard.",
+      "choices": [
+        "I'll have a flat white.",
+        "I'd have a fat white.",
+        "I'll have a flatbread.",
+        "I'll bake a flat white."
+      ],
+      "answer": 0,
+      "phraseCard": "a flat white (espresso + steamed milk)"
     }
   ]
 }
