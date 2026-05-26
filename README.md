@@ -34,6 +34,29 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Build a Windows `.exe`
+
+If you want a single self-contained `do-o-english.exe` you can send to
+someone who doesn't have Python installed, run the build script on a
+Windows machine:
+
+```
+launchers\build-windows.bat
+```
+
+That will:
+
+1. Set up the venv if needed and install pygame + PyInstaller.
+2. Bundle `main.py`, `network.py`, the `content/` folder and the
+   character PNGs into a single `.exe`.
+
+The result lands at `dist\do-o-english.exe`. Double-click it to play —
+no Python required. The save file is written to
+`%APPDATA%\do-o-english\progress.db`.
+
+> PyInstaller can't cross-compile, so the `.exe` has to be built on a
+> Windows machine (or in Wine).
+
 ## Code map
 
 Everything lives in one file you can read top-to-bottom:

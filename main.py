@@ -31,8 +31,11 @@ HOW THIS FILE IS ORGANIZED (top to bottom)
 import hashlib        # to turn passwords into a safe-to-store string
 import json           # to read the lesson .json files
 import math           # for sin/cos animations (the gentle floaty motion)
+import os             # to read DOO_WINDOWED env override
+import platform       # to pick the right per-platform save folder
 import random         # to shuffle word-order exercises and pick particles
 import sqlite3        # to remember profiles and progress on disk
+import sys            # to detect a PyInstaller-frozen build
 import time           # for timestamps used in animations
 from pathlib import Path
 
@@ -57,6 +60,9 @@ from network import (
 # Window size in pixels.
 WIDTH  = 1024
 HEIGHT = 720
+
+# Partial credit awarded for a question where the player used a Hint or Skip.
+PARTIAL_CREDIT = 0.4
 FPS    = 60
 
 # ---- Palette ----------------------------------------------------
@@ -112,9 +118,32 @@ ACCENT_PINK    = (255, 110, 180)
 ACCENT_CYAN    = (110, 220, 255)
 
 # Where to find lessons and where to save progress.
-ROOT_DIR    = Path(__file__).resolve().parent
+#
+# When the game runs from source, assets sit alongside `main.py`. When
+# PyInstaller bundles us into an .exe, they are unpacked into a temp
+# folder pointed at by `sys._MEIPASS`. `_resources_root()` resolves to
+# whichever is appropriate so the rest of the code can stay platform-
+# agnostic.
+def _resources_root():
+    bundled = getattr(sys, "_MEIPASS", None)
+    if bundled:
+        return Path(bundled)
+    return Path(__file__).resolve().parent
+
+
+def _user_data_dir():
+    """A writeable per-user folder for the SQLite save file."""
+    if sys.platform.startswith("win"):
+        base = os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming")
+        return Path(base) / "do-o-english"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "do-o-english"
+    return Path.home() / ".local" / "share" / "do-o-english"
+
+
+ROOT_DIR    = _resources_root()
 CONTENT_DIR = ROOT_DIR / "content" / "en-a1" / "unit-01-cafe"
-DB_PATH     = Path.home() / ".local" / "share" / "do-o-english" / "progress.db"
+DB_PATH     = _user_data_dir() / "progress.db"
 
 # A single comma-separated list of font names. pygame.SysFont tries them
 # in order and falls back to its default if none are installed.
@@ -442,23 +471,44 @@ def draw_text(screen, text, font, color, x, y, center=True):
 
 
 def draw_text_with_glow(screen, text, font, color, x, y, *,
-                        glow_color=(120, 160, 255), glow_alpha=80, glow_size=6):
-    """Render text with a soft colored halo behind it."""
+                        glow_color=(120, 160, 255), glow_alpha=140, glow_size=4):
+    """Render text with a soft colored halo behind it.
+
+    The halo is produced by drawing the text once into a padded surface and
+    blurring it via downscale/upscale, so there is no readable ghost copy of
+    the text behind the foreground.
+    """
     text_surf = font.render(text, True, color)
     rect = text_surf.get_rect(center=(x, y))
-    glow_surf = pygame.Surface(
-        (text_surf.get_width() + glow_size * 4,
-         text_surf.get_height() + glow_size * 4),
-        pygame.SRCALPHA,
+
+    pad = max(6, glow_size * 4)
+    g_w = text_surf.get_width() + pad * 2
+    g_h = text_surf.get_height() + pad * 2
+    glow = pygame.Surface((g_w, g_h), pygame.SRCALPHA)
+    glow_text = font.render(text, True, glow_color)
+    glow_text.set_alpha(glow_alpha)
+    glow.blit(glow_text, (pad, pad))
+
+    shrink = max(2, glow_size)
+    small = pygame.transform.smoothscale(
+        glow, (max(1, g_w // shrink), max(1, g_h // shrink))
     )
-    base = font.render(text, True, glow_color)
-    base.set_alpha(glow_alpha)
-    for dx, dy in ((-glow_size, 0), (glow_size, 0), (0, -glow_size), (0, glow_size),
-                   (-glow_size, -glow_size), (glow_size, glow_size),
-                   (-glow_size, glow_size), (glow_size, -glow_size)):
-        glow_surf.blit(base, (glow_size * 2 + dx, glow_size * 2 + dy))
-    screen.blit(glow_surf, (rect.x - glow_size * 2, rect.y - glow_size * 2))
+    blurred = pygame.transform.smoothscale(small, (g_w, g_h))
+
+    screen.blit(blurred, (rect.x - pad, rect.y - pad))
     screen.blit(text_surf, rect)
+
+
+def _ellipsize(text, font, max_width):
+    """Trim ``text`` so it renders within ``max_width`` pixels, adding an ellipsis if cut."""
+    if not text or font.size(text)[0] <= max_width:
+        return text
+    ellipsis = "…"
+    if font.size(ellipsis)[0] > max_width:
+        return ""
+    while text and font.size(text + ellipsis)[0] > max_width:
+        text = text[:-1]
+    return text + ellipsis
 
 
 def wrap_lines(text, font, max_width):
@@ -932,7 +982,8 @@ class Button:
     # ---- main drawing ---------------------------------------------------
     def draw(self, screen, font):
         mouse_pos = pygame.mouse.get_pos()
-        hovered = self.rect.collidepoint(mouse_pos)
+        eliminated = getattr(self, "_eliminated", False)
+        hovered = (not eliminated) and self.rect.collidepoint(mouse_pos)
 
         # Smooth hover and press animation
         target = 1.0 if hovered else 0.0
@@ -957,6 +1008,20 @@ class Button:
             self._draw_card(screen, font, draw_rect, hovered)
         else:
             self._draw_primary(screen, font, draw_rect, hovered)
+
+        # Visually mark an eliminated answer: dim overlay + strikethrough.
+        if eliminated:
+            radius = max(14, draw_rect.h // 2)
+            overlay = pygame.Surface(draw_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(overlay, (10, 10, 20, 160),
+                             (0, 0, draw_rect.w, draw_rect.h),
+                             border_radius=radius)
+            screen.blit(overlay, draw_rect.topleft)
+            # Red strikethrough across the middle.
+            mid_y = draw_rect.centery
+            pygame.draw.line(screen, (220, 90, 90),
+                             (draw_rect.x + 24, mid_y),
+                             (draw_rect.right - 24, mid_y), 3)
 
     def _draw_primary(self, screen, font, rect, hovered):
         radius = max(14, rect.h // 2)
@@ -1018,21 +1083,31 @@ class Button:
             label = ic_font.render(self.icon, True, INK_DARK)
             screen.blit(label, label.get_rect(center=(ic_cx, ic_cy + 1)))
 
+        # Reserve right-side area for the badge / chevron so text never collides.
+        if self.badge:
+            badge_font = pygame.font.SysFont(UI_FONT_STACK, 14, bold=True)
+            bw = badge_font.size(self.badge)[0] + 22
+            right_reserve = bw + 28
+        else:
+            right_reserve = 44
+
+        text_x = rect.x + 96
+        max_text_w = max(80, rect.right - text_x - right_reserve)
+
         # Title
         title_font = pygame.font.SysFont(UI_FONT_STACK, 22, bold=True)
-        title = title_font.render(self.text, True, WHITE)
-        text_x = rect.x + 96
+        title_text = _ellipsize(self.text, title_font, max_text_w)
+        title = title_font.render(title_text, True, WHITE)
         screen.blit(title, (text_x, rect.y + 14))
         # Subtitle
         if self.sub_text:
             sub_font = pygame.font.SysFont(UI_FONT_STACK, 16)
-            sub = sub_font.render(self.sub_text, True, MUTED)
+            sub_text = _ellipsize(self.sub_text, sub_font, max_text_w)
+            sub = sub_font.render(sub_text, True, MUTED)
             screen.blit(sub, (text_x, rect.y + 42))
 
         # Badge (e.g. "DONE") on the right
         if self.badge:
-            badge_font = pygame.font.SysFont(UI_FONT_STACK, 14, bold=True)
-            bw = badge_font.size(self.badge)[0] + 22
             bh = 26
             bx = rect.right - bw - 16
             by = rect.centery - bh // 2
@@ -1164,11 +1239,40 @@ class TextInput:
 
 class App:
 
+    @staticmethod
+    def _make_display(fullscreen):
+        """Create the logical 1024×720 display surface.
+
+        With `SCALED`, pygame keeps the canvas at WIDTH×HEIGHT internally
+        and letterbox-scales it onto the real display. Mouse events are
+        translated to logical coordinates automatically, so all of the
+        existing drawing/hit-testing code is unaffected.
+        """
+        flags = pygame.SCALED
+        if fullscreen:
+            flags |= pygame.FULLSCREEN
+        try:
+            return pygame.display.set_mode((WIDTH, HEIGHT), flags)
+        except pygame.error:
+            # Some headless backends don't support SCALED — fall back.
+            return pygame.display.set_mode((WIDTH, HEIGHT))
+
+    def _toggle_fullscreen(self):
+        """F11 — flip between fullscreen and a 1024×720 window."""
+        self.fullscreen = not self.fullscreen
+        self.screen = self._make_display(self.fullscreen)
+
     def __init__(self):
         # --- Set up pygame ---
         pygame.init()
         pygame.display.set_caption("do-o-english")
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        # Boot in fullscreen by default. SCALED tells pygame to keep a
+        # 1024×720 logical canvas and letterbox-scale it to the real
+        # display, so the rest of the codebase keeps using fixed coords
+        # and mouse events get translated automatically. The user can
+        # press F11 to toggle to a 1024×720 window.
+        self.fullscreen = os.environ.get("DOO_WINDOWED") != "1"
+        self.screen = self._make_display(self.fullscreen)
         self.clock = pygame.time.Clock()
         self.running = True
 
@@ -1195,12 +1299,14 @@ class App:
         # Lesson-specific state
         self.current_lesson = None
         self.question_index = 0
-        self.correct_count = 0
+        self.correct_count = 0.0
         self.picked_words = []
         self.feedback_text = ""
         self.feedback_color = WHITE
         self.feedback_t = 0.0           # remaining time to flash the avatar mood
         self.avatar_mood = "happy"      # "happy" / "sad"
+        self.hint_used_this_q = False   # set by _use_hint, caps the question's credit
+        self.pending_advance = None     # {t: float, correct: bool} during reveal pause
         self.summary_data = {}
 
         # Visual extras
@@ -1346,24 +1452,65 @@ class App:
             ))
             y += card_h + gap
 
-        # Shop (gold-ish) — opens the XP shop.
+        # Bottom action bar — all three share the same baseline + height.
+        bar_h = 46
+        bar_y = HEIGHT - 24 - bar_h
+        mp_w, shop_w, quit_w = 170, 160, 120
+        gap = 16
+        mp_x = WIDTH - 24 - mp_w
+        shop_x = mp_x - gap - shop_w
         self.buttons.append(Button(
-            "Shop", WIDTH - 380, HEIGHT - 64, 160, 46,
+            "Shop", shop_x, bar_y, shop_w, bar_h,
             TEACHER_COLOR, TEACHER_HOVER,
             on_click=self.show_shop,
         ))
-        # Multiplayer (accent) — opens the LAN lobby.
         self.buttons.append(Button(
-            "Multiplayer", WIDTH - 200, HEIGHT - 64, 170, 46,
+            "Multiplayer", mp_x, bar_y, mp_w, bar_h,
             ACCENT_PURPLE, ACCENT_PURPLE,
             on_click=self.show_lobby,
         ))
-        # Quit (ghost) in the corner.
         self.buttons.append(Button(
-            "Quit", 24, HEIGHT - 64, 120, 42,
+            "Quit", 24, bar_y, quit_w, bar_h,
             NEUTRAL_COLOR, NEUTRAL_HOVER, on_click=self.quit_app,
             style="ghost",
         ))
+
+    def _draw_xp_chip(self, banner, xp):
+        """Pill-shaped XP counter pinned to the right edge of a banner.
+
+        The chip auto-sizes around the text and the gem, and the label
+        is vertically centred. The previous version drew the text with
+        `center=False` at the chip's centerline, so the bottom of every
+        glyph spilled past the chip — that overhang read as a 'ghost'
+        duplicate of the text against the dark background.
+        """
+        xp_text = f"{xp} XP"
+        text_w, text_h = self.font_bold.size(xp_text)
+        gem_w = 36          # gem + padding on the left
+        pad_x = 22          # padding on the right of the text
+        chip_w = gem_w + text_w + pad_x
+        chip_h = max(44, text_h + 14)
+        chip_rect = pygame.Rect(
+            banner.right - chip_w - 24,
+            banner.centery - chip_h // 2,
+            chip_w, chip_h,
+        )
+        chip = pygame.Surface(chip_rect.size, pygame.SRCALPHA)
+        radius = chip_h // 2
+        pygame.draw.rect(chip, (250, 200, 90, 40),
+                         (0, 0, chip_rect.w, chip_rect.h), border_radius=radius)
+        pygame.draw.rect(chip, (250, 200, 90, 200),
+                         (0, 0, chip_rect.w, chip_rect.h), width=1,
+                         border_radius=radius)
+        self.screen.blit(chip, chip_rect.topleft)
+
+        draw_xp_gem(self.screen, chip_rect.x + 20, chip_rect.centery, 10,
+                    t=self.now())
+
+        text_surf = self.font_bold.render(xp_text, True, GOLD)
+        text_rect = text_surf.get_rect(
+            midleft=(chip_rect.x + gem_w, chip_rect.centery))
+        self.screen.blit(text_surf, text_rect)
 
     def draw_hub(self):
         # Top banner panel
@@ -1392,27 +1539,14 @@ class App:
         draw_text_with_glow(self.screen, "do-o-english",
                             self.font_h2, WHITE,
                             title_center[0], title_center[1],
-                            glow_color=ACCENT_PURPLE, glow_alpha=70, glow_size=6)
+                            glow_color=ACCENT_PURPLE, glow_alpha=130, glow_size=3)
         draw_text(self.screen, "Pick a lesson and let's go.",
                   self.font_small, MUTED,
                   text_x, banner.centery + 22, center=False)
 
         # XP chip on the right
         xp = self.user["xp"] if self.user else 0
-        xp_text = f"{xp} XP"
-        tw = self.font_bold.size(xp_text)[0] + 56
-        xp_rect = pygame.Rect(banner.right - tw - 24,
-                              banner.centery - 22, tw, 44)
-        xp_surf = pygame.Surface(xp_rect.size, pygame.SRCALPHA)
-        pygame.draw.rect(xp_surf, (250, 200, 90, 40),
-                         (0, 0, xp_rect.w, xp_rect.h), border_radius=22)
-        pygame.draw.rect(xp_surf, (250, 200, 90, 200),
-                         (0, 0, xp_rect.w, xp_rect.h), width=1, border_radius=22)
-        self.screen.blit(xp_surf, xp_rect.topleft)
-        draw_xp_gem(self.screen, xp_rect.x + 22, xp_rect.centery, 10,
-                    t=self.now())
-        draw_text(self.screen, xp_text, self.font_bold, GOLD,
-                  xp_rect.x + 42, xp_rect.centery, center=False)
+        self._draw_xp_chip(banner, xp)
 
         # Section heading just under the banner
         draw_text(self.screen, "Choose a lesson",
@@ -1427,9 +1561,11 @@ class App:
         self.scene = "lesson"
         self.current_lesson = lesson
         self.question_index = 0
-        self.correct_count = 0
+        self.correct_count = 0.0
         self.feedback_t = 0.0
         self.avatar_mood = "default"
+        self.hint_used_this_q = False
+        self.pending_advance = None
         self.speech_text = lesson.get("npcIntro", "Let's learn!")
         self.speech_mood = "default"
         self.show_question()
@@ -1464,16 +1600,19 @@ class App:
                 on_click=lambda: self.next_question(correct=False),
             ))
 
-        # Quit-lesson button in the corner
+        # Bottom action bar — Quit lesson + inventory tools all share a baseline.
+        bar_h = 46
+        bar_y = HEIGHT - 24 - bar_h
+        gap = 12
         self.buttons.append(Button(
-            "Quit lesson", 24, HEIGHT - 64, 140, 42,
+            "Quit lesson", 24, bar_y, 140, bar_h,
             NEUTRAL_COLOR, NEUTRAL_HOVER, on_click=self.show_hub,
             style="ghost",
         ))
 
         # Inventory-driven Hint + Skip buttons (only show when owned).
         inv = get_inventory(self.db, self.user["id"]) if self.user else {}
-        x = 180
+        x = 24 + 140 + gap
         for item in (SHOP_ITEMS_BY_ID["hint"], SHOP_ITEMS_BY_ID["skip"]):
             qty = inv.get(item["id"], 0)
             if qty <= 0:
@@ -1481,37 +1620,118 @@ class App:
             label = f"{item['use_label']} ({qty})"
             handler = (self._use_hint if item["id"] == "hint"
                        else self._use_skip)
-            self.buttons.append(Button(
-                label, x, HEIGHT - 64, 130, 42,
+            w = 130
+            btn = Button(
+                label, x, bar_y, w, bar_h,
                 item["color"], item["color"],
                 on_click=handler, style="ghost",
-            ))
-            x += 140
+            )
+            btn._inv_btn = item["id"]
+            self.buttons.append(btn)
+            x += w + gap
 
     def _use_hint(self):
-        """Consume one Hint Token — auto-answer this question correctly."""
-        if not self.user:
+        """Nudge the player without giving the answer away.
+
+        - multiple_choice / listen_select / fill_blank: greys out and
+          disables one wrong answer button. Speech bubble names which
+          option was eliminated.
+        - word_order: tells the player the *first* word of the sentence.
+
+        Using a hint marks the question as hinted, which caps the
+        possible score for that question at 0.4 (see `next_question`).
+        """
+        if not self.user or not self.current_lesson:
             return
+        if self.hint_used_this_q:
+            return  # don't burn a second token on the same question
         inv = get_inventory(self.db, self.user["id"])
         if inv.get("hint", 0) <= 0:
             return
+
+        exercise = self.current_lesson["exercises"][self.question_index]
+        kind = exercise.get("type")
+
+        if kind in ("multiple_choice", "listen_select", "fill_blank"):
+            correct_index = self._correct_choice_index(exercise)
+            wrong_btns = [b for b in self.buttons
+                          if getattr(b, "_choice_index", None) is not None
+                          and b._choice_index != correct_index
+                          and not getattr(b, "_eliminated", False)]
+            if not wrong_btns:
+                self.speech_text = "Already narrowed down — make a choice!"
+                self.speech_mood = "default"
+                return
+            victim = random.choice(wrong_btns)
+            victim._eliminated = True
+            victim.on_click    = lambda: None    # disable click
+            self.speech_text = f'Hint: it\'s not "{victim.text}".'
+            self.speech_mood = "default"
+
+        elif kind == "word_order":
+            words = list(exercise.get("words", []))
+            if not words:
+                self.speech_text = "No hint available for this question."
+                self.speech_mood = "default"
+                return
+            self.speech_text = f'Hint: it starts with "{words[0]}".'
+            self.speech_mood = "default"
+
+        else:
+            self.speech_text = "No hint available for this question."
+            self.speech_mood = "default"
+            return
+
+        # Charge the token + remember that this question is now capped.
         add_to_inventory(self.db, self.user["id"], "hint", -1)
-        self.speech_text = "Hint used — here's the answer!"
-        self.speech_mood = "default"
-        self.next_question(correct=True)
+        self.hint_used_this_q = True
+        for btn in self.buttons:
+            if getattr(btn, "_inv_btn", None) == "hint":
+                btn.text = f"Hint ({inv.get('hint', 0) - 1})"
+
+    def _answer_text_for(self, exercise):
+        """Human-readable answer string for the speech bubble hint."""
+        kind = exercise.get("type")
+        if kind in ("multiple_choice", "listen_select"):
+            try:
+                return exercise["choices"][int(exercise.get("answer", 0))]
+            except (KeyError, IndexError, ValueError):
+                return None
+        if kind == "fill_blank":
+            return str(exercise.get("answer", "")) or None
+        if kind == "word_order":
+            words = exercise.get("answer") or exercise.get("words") or []
+            return " ".join(words) if words else None
+        return None
+
+    def _correct_choice_index(self, exercise):
+        """Return the index of the correct button — None for non-button types."""
+        kind = exercise.get("type")
+        if kind in ("multiple_choice", "listen_select"):
+            try:
+                return int(exercise.get("answer", 0))
+            except (TypeError, ValueError):
+                return None
+        if kind == "fill_blank":
+            ans = str(exercise.get("answer", "")).strip().lower()
+            for i, c in enumerate(exercise.get("choices", [])):
+                if str(c).strip().lower() == ans:
+                    return i
+        return None
 
     def _use_skip(self):
-        """Consume one Skip Pass — advance without changing the score."""
+        """Consume one Skip Pass — advance with partial credit (0.4)."""
         if not self.user:
             return
         inv = get_inventory(self.db, self.user["id"])
         if inv.get("skip", 0) <= 0:
             return
         add_to_inventory(self.db, self.user["id"], "skip", -1)
-        # Move forward without flipping correct_count.
+        self.correct_count += PARTIAL_CREDIT
         self.question_index += 1
-        self.speech_text = "Skipped! Moving on."
+        self.speech_text = f"Skipped! +{PARTIAL_CREDIT:.1f} pts."
         self.speech_mood = "default"
+        self.hint_used_this_q = False
         if self.question_index >= len(self.current_lesson["exercises"]):
             self.finish_lesson()
         else:
@@ -1548,12 +1768,24 @@ class App:
             self.buttons.append(btn)
 
     def check_choice_answer(self, button):
-        """Grade a click on a multiple-choice / fill-blank / listen-select button."""
+        """Grade a click on a multiple-choice / fill-blank / listen-select button.
+
+        We don't advance immediately — we light up the buttons so the
+        player can see what was right and what they picked, then schedule
+        the actual advance after a short reveal pause.
+        """
+        if self.pending_advance:
+            return  # already revealing the answer
         exercise = self.current_lesson["exercises"][self.question_index]
-        self.next_question(correct=_grade_choice(exercise, button._choice_index))
+        is_correct = _grade_choice(exercise, button._choice_index)
+        correct_index = self._correct_choice_index(exercise)
+        self._reveal_choice_buttons(clicked=button, correct_index=correct_index)
+        self._schedule_advance(is_correct)
 
     def pick_word(self, button):
         """Used by word_order: the player clicks word buttons one by one."""
+        if self.pending_advance:
+            return
         if getattr(button, "_word_picked", False):
             return
         button._word_picked = True
@@ -1565,19 +1797,68 @@ class App:
         target_words = list(exercise.get("words", []))
         if len(self.picked_words) == len(target_words):
             is_correct = (self.picked_words == target_words)
-            self.next_question(correct=is_correct)
+            # Recolour every word button so the order reads correct/wrong.
+            for b in self.buttons:
+                if getattr(b, "_choice_index", None) is None:
+                    continue
+                b.on_click = lambda: None
+                b.base_color  = GOOD_GREEN if is_correct else BAD_RED
+                b.hover_color = b.base_color
+            if not is_correct:
+                # Reveal the right order so the lesson stays educational.
+                self.speech_text = (
+                    f'Correct order: "{" ".join(target_words)}".')
+                self.speech_mood = "sad"
+            self._schedule_advance(is_correct)
+
+    # ---- Reveal helpers -------------------------------------------------
+
+    def _reveal_choice_buttons(self, clicked, correct_index):
+        """Light up choice buttons: clicked → green/red, correct → green."""
+        for b in self.buttons:
+            ci = getattr(b, "_choice_index", None)
+            if ci is None:
+                continue
+            b.on_click = lambda: None       # lock out further clicks
+            if ci == correct_index:
+                b.base_color  = GOOD_GREEN
+                b.hover_color = STUDENT_HOVER
+            elif b is clicked:
+                b.base_color  = BAD_RED
+                b.hover_color = BAD_RED
+
+    def _schedule_advance(self, correct):
+        """Show feedback for ~0.7s, then advance the lesson."""
+        self.avatar_mood = "happy" if correct else "sad"
+        self.feedback_t = 0.7
+        # Don't overwrite a wrong-answer 'Correct order' hint set above.
+        if correct or self.speech_mood != "sad":
+            self.speech_text = random.choice(DUO_LINES[self.avatar_mood])
+            self.speech_mood = self.avatar_mood
+        self.pending_advance = {"t": 0.7, "correct": correct}
 
     def next_question(self, correct):
-        """Move to the next question, or finish the lesson if we ran out."""
-        # Briefly flash the avatar mood + speech as feedback.
-        mood = "happy" if correct else "sad"
-        self.avatar_mood = mood
-        self.feedback_t = 0.6
-        self.speech_text = random.choice(DUO_LINES[mood])
-        self.speech_mood = mood
+        """Move to the next question, or finish the lesson if we ran out.
+
+        The mood flash + speech bubble are set by `_schedule_advance` at
+        click time so the reveal animation runs *before* the screen flips.
+        """
+        # Buttons-with-no-reveal callers (the "Skip this question" fallback)
+        # still want some feedback, so fall back to the old behaviour if
+        # nobody set up the flash yet.
+        if self.feedback_t <= 0:
+            mood = "happy" if correct else "sad"
+            self.avatar_mood = mood
+            self.feedback_t = 0.6
+            self.speech_text = random.choice(DUO_LINES[mood])
+            self.speech_mood = mood
 
         if correct:
-            self.correct_count += 1
+            # A hinted question is capped at the partial-credit value.
+            self.correct_count += (PARTIAL_CREDIT if self.hint_used_this_q
+                                   else 1)
+        self.hint_used_this_q = False
+        self.pending_advance = None
 
         self.question_index += 1
         if self.question_index >= len(self.current_lesson["exercises"]):
@@ -1637,10 +1918,12 @@ class App:
 
         rect = sprite_to_blit.get_rect(center=(cx + dx, int(cy + bob + dy)))
 
-        # Ground shadow stays near the mound; gets smaller when jumping.
+        # Ground shadow — scaled to the *current* sprite so the mini avatar
+        # in the multiplayer banner doesn't get a stadium-sized shadow.
         ground_y = cy + sprite.get_height() // 2 - 8
-        sw_shadow = max(120, int(sprite.get_width() * (0.85 - abs(dy) * 0.004)))
-        sh_shadow = max(12, int(24 - abs(dy) * 0.2))
+        base_w = sprite.get_width()
+        sw_shadow = max(24, int(base_w * (0.85 - abs(dy) * 0.004)))
+        sh_shadow = max(6, int(sprite.get_height() * 0.16 - abs(dy) * 0.05))
         shadow = pygame.Surface((sw_shadow, sh_shadow), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow, (0, 0, 0, 140 - min(80, abs(dy) * 2)),
                             (0, 0, sw_shadow, sh_shadow))
@@ -1681,7 +1964,9 @@ class App:
             self.screen.blit(fill, pb_rect.topleft)
 
         # Progress label
-        label = f"Question {self.question_index + 1} / {total}   ·   {self.correct_count} correct"
+        score_str = (f"{self.correct_count:.1f}" if self.correct_count % 1
+                     else f"{int(self.correct_count)}")
+        label = f"Question {self.question_index + 1} / {total}   ·   {score_str} correct"
         draw_text(self.screen, label, self.font_small, MUTED,
                   banner.centerx, banner.y + 72)
 
@@ -1770,20 +2055,24 @@ class App:
             add_xp(self.db, self.user["id"], xp)
             self.user["xp"] += xp
 
+        correct_str = (f"{self.correct_count:.1f}" if self.correct_count % 1
+                       else f"{int(self.correct_count)}")
         self.summary_data = {
-            "title":   self.current_lesson["title"],
-            "outro":   self.current_lesson.get("npcOutro", "Great job!"),
-            "correct": self.correct_count,
-            "total":   total,
-            "score":   score,
-            "xp":      xp,
-            "doubled": doubled,
+            "title":       self.current_lesson["title"],
+            "outro":       self.current_lesson.get("npcOutro", "Great job!"),
+            "correct":     self.correct_count,
+            "correct_str": correct_str,
+            "total":       total,
+            "score":       score,
+            "xp":          xp,
+            "doubled":     doubled,
         }
         self.scene = "summary"
+        btn_w, btn_h = 260, 56
         self.buttons = [
             Button(
                 "Back to lessons",
-                WIDTH // 2 - 130, HEIGHT - 92, 260, 56,
+                WIDTH // 2 - btn_w // 2, HEIGHT - 24 - btn_h, btn_w, btn_h,
                 GOOD_GREEN, STUDENT_HOVER, on_click=self.show_hub,
             )
         ]
@@ -1842,7 +2131,7 @@ class App:
         draw_text_with_glow(self.screen, "Lesson complete!",
                             self.font_title, WHITE,
                             WIDTH // 2, panel.y + 180,
-                            glow_color=STUDENT_COLOR, glow_alpha=90, glow_size=6)
+                            glow_color=STUDENT_COLOR, glow_alpha=140, glow_size=3)
         draw_text(self.screen, data["title"], self.font_h2, MUTED,
                   WIDTH // 2, panel.y + 230)
 
@@ -1854,7 +2143,7 @@ class App:
         x0 = WIDTH // 2 - total_w // 2
 
         stats = [
-            (f"{data['correct']} / {data['total']}", "Correct",       PROFILE_COLOR),
+            (f"{data['correct_str']} / {data['total']}", "Correct",       PROFILE_COLOR),
             (f"{data['score']}%",                    "Score",         STUDENT_COLOR),
             (f"+{data['xp']}",                       "XP earned",     GOLD),
         ]
@@ -1894,9 +2183,11 @@ class App:
         self.buttons = []
         self.inputs = []
         self._refresh_shop_buttons()
+        bar_h = 46
+        bar_y = HEIGHT - 24 - bar_h
         self.buttons.append(Button(
             "Back",
-            24, HEIGHT - 64, 120, 42,
+            24, bar_y, 120, bar_h,
             NEUTRAL_COLOR, NEUTRAL_HOVER, on_click=self.show_hub,
             style="ghost",
         ))
@@ -1917,9 +2208,11 @@ class App:
             base = STUDENT_COLOR if can_afford else NEUTRAL_COLOR
             hov  = STUDENT_HOVER if can_afford else NEUTRAL_HOVER
             row_y = 180 + i * 130
+            row_right = WIDTH - 60          # mirrors `row` rect in draw_shop
+            btn_w = 200
             btn = Button(
                 label,
-                WIDTH - 240, row_y + 36, 200, 50,
+                row_right - 20 - btn_w, row_y + 36, btn_w, 50,
                 base, hov,
                 on_click=(lambda it=item: self._buy_item(it["id"]))
                          if can_afford else (lambda: None),
@@ -1945,26 +2238,14 @@ class App:
         draw_glass(self.screen, banner, radius=22, alpha=20)
         draw_text_with_glow(self.screen, "Shop", self.font_title, WHITE,
                             banner.x + 100, banner.centery,
-                            glow_color=TEACHER_COLOR, glow_alpha=90, glow_size=6)
+                            glow_color=TEACHER_COLOR, glow_alpha=140, glow_size=3)
         draw_text(self.screen, "Spend your XP on helpful boosts.",
                   self.font_small, MUTED,
                   banner.x + 100, banner.bottom - 22, center=False)
 
         # XP chip on the right of the banner.
         xp = self.user["xp"] if self.user else 0
-        xp_text = f"{xp} XP"
-        tw = self.font_bold.size(xp_text)[0] + 56
-        xp_rect = pygame.Rect(banner.right - tw - 24,
-                              banner.centery - 22, tw, 44)
-        chip = pygame.Surface(xp_rect.size, pygame.SRCALPHA)
-        pygame.draw.rect(chip, (250, 200, 90, 40),
-                         (0, 0, xp_rect.w, xp_rect.h), border_radius=22)
-        pygame.draw.rect(chip, (250, 200, 90, 200),
-                         (0, 0, xp_rect.w, xp_rect.h), width=1, border_radius=22)
-        self.screen.blit(chip, xp_rect.topleft)
-        draw_xp_gem(self.screen, xp_rect.x + 22, xp_rect.centery, 10, t=self.now())
-        draw_text(self.screen, xp_text, self.font_bold, GOLD,
-                  xp_rect.x + 42, xp_rect.centery, center=False)
+        self._draw_xp_chip(banner, xp)
 
         # Item rows.
         inv = get_inventory(self.db, self.user["id"]) if self.user else {}
@@ -1992,11 +2273,13 @@ class App:
                     wrap_lines(item["desc"], self.font_small, row.w - 460)):
                 draw_text(self.screen, line, self.font_small, MUTED,
                           row.x + 110, row.y + 64 + j * 18, center=False)
-            # Owned counter.
+            # Owned counter — sits to the LEFT of the Buy button (220 + 20 gap).
             owned = inv.get(item["id"], 0)
-            draw_text(self.screen, f"Owned: {owned}",
+            owned_text = f"Owned: {owned}"
+            owned_w = self.font_bold.size(owned_text)[0]
+            draw_text(self.screen, owned_text,
                       self.font_bold, GOOD_GREEN if owned else MUTED,
-                      row.right - 280, row.y + 28, center=False)
+                      row.right - 240 - owned_w - 12, row.y + 28, center=False)
 
     # ----------------------------------------------------------
     # MULTIPLAYER — lobby, room, in-game, summary
@@ -2035,9 +2318,11 @@ class App:
             TEACHER_COLOR, TEACHER_HOVER,
             on_click=self._host_game,
         ))
+        bar_h = 46
+        bar_y = HEIGHT - 24 - bar_h
         self.buttons.append(Button(
             "Back",
-            24, HEIGHT - 64, 120, 42,
+            24, bar_y, 120, bar_h,
             NEUTRAL_COLOR, NEUTRAL_HOVER, on_click=self._lobby_back,
             style="ghost",
         ))
@@ -2079,15 +2364,15 @@ class App:
 
     def draw_lobby(self):
         # Header panel
-        banner = pygame.Rect(40, 30, WIDTH - 80, 120)
+        banner = pygame.Rect(40, 30, WIDTH - 80, 110)
         draw_panel(self.screen, banner, radius=22,
                    top=lerp_color(PANEL_TOP, ACCENT_PURPLE, 0.20),
                    bottom=PANEL_BOTTOM)
         draw_glass(self.screen, banner, radius=22, alpha=20)
         draw_text_with_glow(self.screen, "Multiplayer Lobby",
-                            self.font_title, WHITE,
-                            WIDTH // 2, banner.y + 50,
-                            glow_color=ACCENT_PURPLE, glow_alpha=80, glow_size=8)
+                            self.font_h2, WHITE,
+                            WIDTH // 2, banner.y + 44,
+                            glow_color=ACCENT_PURPLE, glow_alpha=130, glow_size=3)
         ips = ", ".join(local_ips()) or "no LAN address"
         draw_text(self.screen, f"You're on  {ips}",
                   self.font_small, MUTED, WIDTH // 2, banner.bottom - 22)
@@ -2165,31 +2450,40 @@ class App:
         self.buttons = []
         self.inputs = []
 
+        bar_h = 46
+        bar_y = HEIGHT - 24 - bar_h
+
         if self.mp_role == "host":
+            # Centered two-up row of pickers above the primary action.
+            pick_w, gap = 240, 16
+            row_y = bar_y - 70 - 50
+            picks_x0 = WIDTH // 2 - pick_w - gap // 2
             self.buttons.append(Button(
                 "Change lesson",
-                WIDTH // 2 - 290, HEIGHT - 220, 280, 50,
+                picks_x0, row_y, pick_w, 50,
                 PROFILE_COLOR, PROFILE_HOVER,
                 on_click=self._cycle_lesson,
                 style="ghost",
             ))
             self.buttons.append(Button(
                 "Change mode",
-                WIDTH // 2 + 10,  HEIGHT - 220, 280, 50,
+                picks_x0 + pick_w + gap, row_y, pick_w, 50,
                 PROFILE_COLOR, PROFILE_HOVER,
                 on_click=self._cycle_mode,
                 style="ghost",
             ))
+            # Primary action sits centered just above the bottom bar.
+            start_w, start_h = 320, 56
             self.buttons.append(Button(
                 "Start game",
-                WIDTH // 2 - 160, HEIGHT - 140, 320, 60,
+                WIDTH // 2 - start_w // 2, bar_y - start_h - 14, start_w, start_h,
                 STUDENT_COLOR, STUDENT_HOVER,
                 on_click=self._host_start_game,
             ))
 
         self.buttons.append(Button(
             "Leave room",
-            24, HEIGHT - 64, 140, 42,
+            24, bar_y, 140, bar_h,
             NEUTRAL_COLOR, NEUTRAL_HOVER, on_click=self._leave_room,
             style="ghost",
         ))
@@ -2303,8 +2597,10 @@ class App:
         self.speech_mood = "default"
         self.picked_words = []
         # Persistent leave button (kept across question changes).
+        bar_h = 46
+        bar_y = HEIGHT - 24 - bar_h
         leave_btn = Button(
-            "Leave game", 24, HEIGHT - 64, 140, 42,
+            "Leave game", 24, bar_y, 140, bar_h,
             NEUTRAL_COLOR, NEUTRAL_HOVER, on_click=self._leave_room,
             style="ghost",
         )
@@ -2578,9 +2874,10 @@ class App:
         self.scene = "mp_summary"
         self.buttons = []
         self.inputs = []
+        btn_w, btn_h = 260, 56
         self.buttons.append(Button(
             "Back to hub",
-            WIDTH // 2 - 130, HEIGHT - 90, 260, 56,
+            WIDTH // 2 - btn_w // 2, HEIGHT - 24 - btn_h, btn_w, btn_h,
             STUDENT_COLOR, STUDENT_HOVER,
             on_click=self._leave_room,
         ))
@@ -2594,7 +2891,7 @@ class App:
         draw_text_with_glow(self.screen, "Final scoreboard",
                             self.font_title, WHITE,
                             WIDTH // 2, panel.y + 70,
-                            glow_color=GOLD, glow_alpha=90, glow_size=6)
+                            glow_color=GOLD, glow_alpha=140, glow_size=3)
         if not self.mp_summary:
             return
         y = panel.y + 150
@@ -2624,49 +2921,32 @@ class App:
         ex = self._current_mp_question()
         total = len(self.mp_lesson["exercises"]) if self.mp_lesson else 0
 
-        # Stage on the upper-left
-        stage_cx = WIDTH // 2 - 220
-        stage_cy = 290
-        draw_grass_mound(self.screen, stage_cx, stage_cy + 150, w=380, h=70)
-        draw_leaf(self.screen, stage_cx - 130, stage_cy + 158, 10, (90, 200, 100), 25)
-        draw_leaf(self.screen, stage_cx + 120, stage_cy + 162, 11, (100, 215, 110), 40)
-
-        if self.feedback_t > 0:
-            mood = self.avatar_mood
-        else:
-            mood = "default"
-        char_rect = self.draw_face_character(stage_cx, stage_cy + 30, mood)
-
-        if self.speech_text:
-            anchor = (char_rect.right - 10, char_rect.centery - 10) if char_rect else \
-                     (stage_cx + 110, stage_cy + 10)
-            outline = {"happy": (60, 170, 90), "sad": (210, 90, 90),
-                       "default": (40, 40, 60)}.get(self.speech_mood, (40, 40, 60))
-            draw_speech_bubble(self.screen, anchor,
-                               self.speech_text, self.font_bold,
-                               max_width=260, tail_side="left",
-                               outline_color=outline)
-
-        # Top banner with lesson title + mode
-        banner = pygame.Rect(30, 24, WIDTH - 60, 70)
+        # Top banner with lesson title + mode (extra tall so the avatar fits).
+        banner = pygame.Rect(30, 24, WIDTH - 60, 80)
         draw_panel(self.screen, banner, radius=18,
                    top=lerp_color(PANEL_TOP, ACCENT_PURPLE, 0.18),
                    bottom=PANEL_BOTTOM, shadow_offset=(0, 6), shadow_alpha=100)
         draw_glass(self.screen, banner, radius=18, alpha=16)
+
+        # Mini mood avatar in the left side of the banner. Lives where
+        # there's free space and never overlaps the answer grid.
+        mood = self.avatar_mood if self.feedback_t > 0 else "default"
+        self.draw_face_character(banner.x + 50, banner.centery, mood, target_h=56)
+
         lesson_title = self.mp_lesson["title"] if self.mp_lesson else ""
         draw_text(self.screen, f"{lesson_title}  ·  {MP_MODE_LABELS[self.mp_mode].split(' — ')[0]}",
-                  self.font_h2, WHITE, banner.centerx, banner.y + 22)
+                  self.font_h2, WHITE, banner.centerx, banner.y + 26)
         idx_label = (f"Question {min(self.mp_question_index + 1, total)} / {total}"
                      if total else "Loading…")
         draw_text(self.screen, idx_label, self.font_small, MUTED,
-                  banner.centerx, banner.y + 50)
+                  banner.centerx, banner.y + 58)
 
         # Question panel (sits under the banner, left of scoreboard)
         if ex is not None:
             prompt = ex.get("prompt", "")
             lines = wrap_lines(prompt, self.font_body, WIDTH - 460)
             ph = 60 + 28 * len(lines)
-            qcard = pygame.Rect(40, 110, WIDTH - 340, ph)
+            qcard = pygame.Rect(40, banner.bottom + 14, WIDTH - 340, ph)
             draw_panel(self.screen, qcard, radius=16,
                        top=(60, 56, 110), bottom=(38, 34, 80),
                        border=ACCENT_PURPLE, border_alpha=120,
@@ -2681,17 +2961,18 @@ class App:
                 draw_text(self.screen, chosen, self.font_bold, GOLD,
                           qcard.centerx, qcard.bottom - 20)
 
-        # Turn indicator
+        # Turn indicator (centered under the question card)
         if self.mp_mode == "turn" and self.mp_current_player_id is not None:
             who = self._name_of(self.mp_current_player_id)
             tag = f"{'Your' if self.mp_current_player_id == self.mp_self_id else who + chr(0x27) + 's'} turn"
+            y_tag = (qcard.bottom if ex is not None else banner.bottom) + 18
             draw_text(self.screen, tag, self.font_bold,
                       STUDENT_COLOR if self.mp_current_player_id == self.mp_self_id
                       else MUTED,
-                      WIDTH // 2 - 120, banner.bottom + 14)
+                      (WIDTH - 280) // 2, y_tag)
 
-        # Scoreboard sidebar on the right
-        side = pygame.Rect(WIDTH - 280, 110, 250, HEIGHT - 200)
+        # Scoreboard sidebar on the right (lined up with the banner bottom)
+        side = pygame.Rect(WIDTH - 280, banner.bottom + 14, 250, HEIGHT - 200)
         draw_panel(self.screen, side, radius=18,
                    top=PANEL_TOP, bottom=PANEL_BOTTOM)
         draw_text(self.screen, "Scoreboard", self.font_h2, WHITE,
@@ -2893,6 +3174,11 @@ class App:
             self.running = False
             return
 
+        # F11 toggles between fullscreen and a 1024×720 window.
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+            self._toggle_fullscreen()
+            return
+
         # Let buttons see press/release events so they animate properly,
         # and fire the click callback when the release lands inside them.
         if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP) and event.button == 1:
@@ -2934,6 +3220,15 @@ class App:
             self.feedback_t = max(0.0, self.feedback_t - dt)
         if self.mp_recent_feedback_t > 0:
             self.mp_recent_feedback_t = max(0.0, self.mp_recent_feedback_t - dt)
+
+        # Lesson reveal pause: after a click, wait a moment so the player
+        # sees the right/wrong colours, then advance.
+        if self.pending_advance:
+            self.pending_advance["t"] -= dt
+            if self.pending_advance["t"] <= 0:
+                correct = self.pending_advance["correct"]
+                self.pending_advance = None
+                self.next_question(correct=correct)
 
         for inp in self.inputs:
             inp.update(dt)
