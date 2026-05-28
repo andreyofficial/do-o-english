@@ -24,6 +24,12 @@ There are just two of them:
 |----|---------|
 | **Linux** | `./launchers/linux.sh` |
 | **Windows** | double-click `launchers\windows.bat` |
+| **Chrome OS** (Crostini) | `./launchers/chromeos.sh` |
+
+On Chrome OS, the first run installs the SDL libraries pygame needs and
+adds a launcher entry, so afterwards you can just click **do-o-english**
+in the Chrome OS launcher (or pin it to the shelf).
+| **Chrome OS** | `./launchers/chromeos.sh` (see Chrome OS notes below) |
 
 ## Or run it manually
 
