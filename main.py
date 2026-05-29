@@ -1264,7 +1264,11 @@ class App:
 
     def __init__(self):
         # --- Set up pygame ---
-        pygame.init()
+        # Initialise only the subsystems we actually use. Skipping the mixer
+        # avoids loud warnings on machines (often Windows) where pygame
+        # can't find a default audio device — we have no sound anyway.
+        pygame.display.init()
+        pygame.font.init()
         pygame.display.set_caption("do-o-english")
         # Boot in fullscreen by default. SCALED tells pygame to keep a
         # 1024×720 logical canvas and letterbox-scale it to the real
@@ -3299,5 +3303,30 @@ class App:
 # 9. ENTRY POINT
 # ============================================================
 
+def _write_crash_log(exc):
+    """Persist any unhandled exception to the user data dir.
+
+    PyInstaller --windowed builds (especially on Windows) hide stdout and
+    stderr, so without this an early crash looks like a do-nothing icon.
+    The user can find the file at:
+        %APPDATA%\\do-o-english\\crash.log     (Windows)
+        ~/Library/Application Support/do-o-english/crash.log   (macOS)
+        ~/.local/share/do-o-english/crash.log  (Linux)
+    """
+    import traceback
+    try:
+        crash_dir = _user_data_dir()
+        crash_dir.mkdir(parents=True, exist_ok=True)
+        with (crash_dir / "crash.log").open("a", encoding="utf-8") as f:
+            f.write(f"\n--- {time.ctime()} ---\n")
+            traceback.print_exception(type(exc), exc, exc.__traceback__, file=f)
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
-    App().run()
+    try:
+        App().run()
+    except Exception as e:
+        _write_crash_log(e)
+        raise
